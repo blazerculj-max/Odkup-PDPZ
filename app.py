@@ -48,7 +48,7 @@ st.set_page_config(page_title="PDPZ Odkup 2026", layout="centered")
 st.title("💰 Kalkulator odkupa PDPZ (2026)")
 st.markdown("Izračun davčnega bremena pri predčasnem ali enkratnem dvigu sredstev.")
 
-# --- VHODNI PODATKI ---
+# --- STRANSKI MENI (VHODNI PODATKI) ---
 with st.sidebar:
     st.header("📋 Vhodni podatki")
     prihodki_delo = st.number_input("Letni bruto prihodki (plača, regres)", value=12000.0, step=500.0)
@@ -109,11 +109,28 @@ with st.expander("🔎 Podrobna razčlenitev stroškov"):
     st.write(f"4. **Dodatni poračun dohodnine (ocena):** {max(0, dejanski_davek_pdpz - (bruto_za_davek * 0.25)):,.2f} €")
     st.info(f"Skupna efektivna stopnja obdavčitve vašega privarčevanega denarja je **{efektivna_obdavcitev*100:.2f} %**.")
 
+# --- NOVO: PREGLED DOHODNINSKE LESTVICE ---
+st.divider()
+st.subheader("📑 Zakonska dohodninska lestvica (2026)")
+st.write("Spodnja tabela prikazuje uradne razrede za izračun letne dohodnine v Sloveniji:")
+
+lestvica_data = {
+    "Razred": ["1. razred", "2. razred", "3. razred"],
+    "Davčna osnova (neto letno)": ["do 9.000 €", "9.000 € do 25.000 €", "nad 25.000 €"],
+    "Stopnja davka": ["16%", "26%", "33%"],
+    "Izračun davka": [
+        "Osnova * 0,16", 
+        "1.440 € + 26% nad 9.000 €", 
+        "5.600 € + 33% nad 25.000 €"
+    ]
+}
+st.table(pd.DataFrame(lestvica_data))
+
 # --- OPOZORILO ---
 st.warning("""
 **Pomembno:** Pri enkratnem odkupu PDPZ se v davčno osnovo všteje **100 %** prejetega zneska. 
-Če bi se odločili za **dosmrtno rento**, bi se v davčno osnovo štelo le **50 %** zneska rente, 
-kar bi vas verjetno ohranilo v nižjem davčnem razredu.
+To pogosto povzroči skok v višji davčni razred (progresivna obdavčitev), kar pomeni, da država vzame 
+večji odstotek ne le od PDPZ-ja, temveč se efektivno poviša obdavčitev vaših celotnih letnih prihodkov.
 """)
 
-st.caption("Izračun je informativne narave in temelji na predvideni zakonodaji za leto 2026.")
+st.caption("Izračun je informativne narave in temelji na predvideni zakonodaji za leto 2026. Upoštevane so splošna in seniorska olajšava ter prispevki za OZP in PDO.")
