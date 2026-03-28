@@ -26,7 +26,7 @@ def izracun_dohodnine_2026(bruto_vsi, bruto_pok_letna, starost):
 
     seniorska_letna = 1500.00 if starost >= 70 else 0.0
     
-    # Prispevki (OZP + 1% Dolgotrajna oskrba po 2025)
+    # Prispevki (OZP + 1% Dolgotrajna oskrba)
     ozp_letni = 35.00 * 12 
     prispevek_do = bruto_pok_letna * 0.01
     skupni_prispevki = ozp_letni + prispevek_do
@@ -49,77 +49,76 @@ def izracun_dohodnine_2026(bruto_vsi, bruto_pok_letna, starost):
     return koncni_davek, osnova
 
 # --- NASTAVITVE STRANI ---
-st.set_page_config(page_title="PDPZ Odkup 2026", layout="centered")
-st.title("🛡️ Svetovalec za odkup PDPZ (2026)")
+st.set_page_config(page_title="PDPZ Analiza Izgube", layout="centered")
+st.title("🛡️ Analiza enkratnega odkupa PDPZ (2026)")
 
 # --- STRANSKI MENI ---
 with st.sidebar:
-    st.header("👤 Podatki o prihodkih")
-    prihodki_delo = st.number_input("Letni bruto prihodki (plača, regres, sejnine)", value=0.0, step=500.0)
-    letna_pok_bruto = st.number_input("Letna bruto pokojnina", value=15000.0, step=500.0)
-    starost = st.slider("Starost stranke ob koncu leta", 50, 95, 67)
+    st.header("👤 Vaši podatki")
+    letna_pok_bruto = st.number_input("Letna bruto pokojnina (€)", value=15000.0, step=500.0)
+    drugi_prihodki = st.number_input("Ostali bruto prihodki (€)", value=0.0, step=500.0)
+    starost = st.slider("Starost", 50, 95, 67)
     
     st.divider()
-    st.header("💰 PDPZ Kapital")
-    pdpz_kapital = st.number_input("Vsa sredstva na PDPZ računu (€)", value=20000.0, step=1000.0)
-    stroski_odkupa_odstotek = st.slider("Izstopni stroški upravljavca (%)", 0.0, 5.0, 1.0) / 100
+    st.header("💰 PDPZ Sredstva")
+    pdpz_kapital = st.number_input("Stanje na PDPZ računu (€)", value=20000.0, step=1000.0)
+    st.info("Upoštevano: 1% izstopni stroški in 25% akontacija dohodnine.")
 
 # --- IZRAČUNI ---
-davek_osnovni, osnova_brez = izracun_dohodnine_2026(prihodki_delo + letna_pok_bruto, letna_pok_bruto, starost)
 
-izstopni_stroski = pdpz_kapital * stroski_odkupa_odstotek
-bruto_za_davek = pdpz_kapital - izstopni_stroski
+# 1. Osnovno stanje brez odkupa
+davek_osnovni, osnova_brez = izracun_dohodnine_2026(letna_pok_bruto + drugi_prihodki, letna_pok_bruto, starost)
 
-davek_z_odkupom, osnova_z = izracun_dohodnine_2026(prihodki_delo + letna_pok_bruto + bruto_za_davek, letna_pok_bruto, starost)
+# 2. Odkup
+izstopni_stroski = pdpz_kapital * 0.01  # Fiksno 1%
+osnova_za_davek = pdpz_kapital - izstopni_stroski
+akontacija_25 = osnova_za_davek * 0.25  # Takojšen odbitek
 
-dejanski_davek_pdpz = davek_z_odkupom - davek_osnovni
-skupna_izguba = dejanski_davek_pdpz + izstopni_stroski
-neto_izplacilo = pdpz_kapital - skupna_izguba
+# 3. Končni poračun dohodnine na letni ravni
+vsi_prihodki_z_odkupom = letna_pok_bruto + drugi_prihodki + osnova_za_davek
+davek_skupaj_z_odkupom, osnova_z = izracun_dohodnine_2026(vsi_prihodki_z_odkupom, letna_pok_bruto, starost)
 
-# Procentualni izračun izgube
+# Dejanski strošek dohodnine, ki odpade na PDPZ
+dejanska_dohodnina_na_pdpz = davek_skupaj_z_odkupom - davek_osnovni
+dodatni_poracun = max(0, dejanska_dohodnina_na_pdpz - akontacija_25)
+
+# Skupna izguba in neto izplačilo
+skupna_izguba = izstopni_stroski + dejanska_dohodnina_na_pdpz
+neto_izplacilo_na_trr = pdpz_kapital - skupna_izguba
 odstotek_izgube = (skupna_izguba / pdpz_kapital * 100) if pdpz_kapital > 0 else 0
 
-# --- PRIKAZ REZULTATOV ---
-st.subheader("Ključni podatki izplačila")
-c1, c2, c3 = st.columns(3)
+# --- PRIKAZ ---
+
+st.subheader("Končni finančni učinek")
+c1, c2 = st.columns(2)
 with c1:
-    st.metric("Neto na TRR", f"{neto_izplacilo:,.2f} €")
+    st.metric("Neto izplačilo na TRR", f"{neto_izplacilo_na_trr:,.2f} €")
+    st.caption("Znesek, ki vam ostane po vseh dajatvah in stroških.")
 with c2:
-    st.metric("Skupna izguba", f"{skupna_izguba:,.2f} €", delta=f"-{odstotek_izgube:.1f}%", delta_color="inverse")
-with c3:
-    razred_z, _ = pridobi_razred_2026(osnova_z)
-    st.metric("Novi davčni razred", razred_z.split(" ")[0])
+    st.metric("Skupna izguba (%)", f"{odstotek_izgube:.2f} %", delta=f"-{skupna_izguba:,.2f} €", delta_color="inverse")
+    st.caption("Delež, ki ga vzamejo država in stroški.")
 
 st.divider()
 
-# --- VIZUALIZACIJA RAZLIKE ---
-preostanek_odstotek = 100 - odstotek_izgube
-st.write(f"### Kam gre vaš denar?")
-st.progress(preostanek_odstotek / 100)
-st.caption(f"Prejmete {preostanek_odstotek:.1f}% kapitala | Država in stroški vzamejo {odstotek_izgube:.1f}% kapitala")
-
-# --- PODROBNOSTI ---
-with st.expander("🔎 Podrobna razčlenitev razlike"):
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.write("**Struktura izgube:**")
-        st.write(f"- Stroški upravljavca: {izstopni_stroski:,.2f} €")
-        st.write(f"- Dejanska dohodnina: {dejanski_davek_pdpz:,.2f} €")
-        st.write(f"**= SKUPAJ IZGUBA:** {skupna_izguba:,.2f} €")
-    
-    with col_b:
-        st.write("**Primerjava:**")
-        st.write(f"Vrednost na računu: {pdpz_kapital:,.2f} €")
-        st.write(f"Dejansko izplačilo: {neto_izplacilo:,.2f} €")
-        st.info(f"Razlika (izguba) znaša natanko **{odstotek_izgube:.2f} %** vašega privarčevanega zneska.")
-
-# --- TABELA ---
-st.subheader("📊 Primerjava stanja")
-podatki_tabela = {
-    "Postavka": ["Bruto kapital na računu", "Stroški in davki (izguba)", "Neto znesek po vseh dajatvah"],
-    "Znesek (€)": [f"{pdpz_kapital:,.2f} €", f"- {skupna_izguba:,.2f} €", f"{neto_izplacilo:,.2f} €"],
-    "Delež (%)": ["100 %", f"{odstotek_izgube:.2f} %", f"{preostanek_odstotek:.2f} %"]
+# --- RAZČLENITEV ---
+st.write("### Kam izgine vaš denar?")
+razclenitev_data = {
+    "Postavka": ["Bruto kapital na računu", "Izstopni stroški (1%)", "Akontacija dohodnine (25%)", "Morebitni dodatni poračun (FURS)", "NETO IZPLAČILO"],
+    "Znesek (€)": [
+        f"{pdpz_kapital:,.2f}", 
+        f"-{izstopni_stroski:,.2f}", 
+        f"-{akontacija_25:,.2f}", 
+        f"-{dodatni_poracun:,.2f}", 
+        f"**{neto_izplacilo_na_trr:,.2f}**"
+    ],
+    "Opomba": ["100%", "Strošek upravljavca", "Odvedeno takoj", "Zaradi progresije", "Vaš čisti denar"]
 }
-st.table(pd.DataFrame(podatki_tabela))
+st.table(pd.DataFrame(razclenitev_data))
 
-st.error("⚠️ **Pomembno:** Pri enkratnem dvigu vas progresivna lestvica udari najmočneje. Če bi izbrali rento, bi bila davčna osnova le 50% zneska, kar bi drastično zmanjšalo 'izgubo'.")
+# --- OPOZORILO ---
+if dodatni_poracun > 0:
+    st.warning(f"**Pozor:** Ker ste vstopili v višje davčne razrede, vam 25% akontacija ne zadošča. Pričakujete lahko dodatno plačilo dohodnine v višini **{dodatni_poracun:,.2f} €** ob prejemu odločbe FURS.")
+else:
+    st.success("Vaši prihodki so dovolj nizki, da 25% akontacija verjetno pokrije vso dohodnino (ali pa celo prejmete nekaj vrnjeno).")
+
+st.info("💡 **Nasvet:** Pri enkratnem dvigu država obravnava vaš dolgoletni prihranek kot 'zaslužek v enem letu', kar povzroči visoko obdavčitev. Premislite o rentnem izplačilu.")
